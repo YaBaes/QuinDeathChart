@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#001219">
+    <meta name="description" content="Follow Quin's Valheim death count and notable moments across in-game days.">
+    <title>Quin's Valheim Death Chart</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <div class="brand-mark" aria-hidden="true">Q</div>
+        <div class="header-copy">
+          <p class="eyebrow">VALHEIM 1.0 <span aria-hidden="true">/</span> SURVIVAL LOG</p>
+          <h1>Every death has a story.</h1>
+          <p class="intro">Quin's journey through the tenth realm, one hard-earned lesson at a time.</p>
+        </div>
+        <button class="button button-quiet refresh-button" id="refresh-button" type="button">
+          <span aria-hidden="true">↻</span> Refresh data
+        </button>
+      </header>
+
+      <section class="stats" aria-label="Death chart summary">
+        <div class="stat-card death-count-card">
+          <span class="stat-label">Deaths recorded</span>
+          <strong class="stat-value" id="death-count">—</strong>
+        </div>
+        <section class="recent-events" aria-labelledby="recent-events-heading">
+          <div class="recent-events-heading">
+            <div>
+              <p class="eyebrow">THE LATEST MOMENTS</p>
+              <h3 id="recent-events-heading">Recent events</h3>
+            </div>
+            <button
+              class="button button-text"
+              id="recent-events-toggle"
+              type="button"
+              aria-expanded="false"
+              aria-controls="recent-events-list"
+              disabled
+            >Show more</button>
+          </div>
+          <ul class="recent-events-list" id="recent-events-list" aria-label="Most recent deaths and notable events"></ul>
+          <div
+            class="line-chart-tooltip recent-events-tooltip"
+            id="recent-events-tooltip"
+            role="tooltip"
+            aria-hidden="true"
+          ></div>
+        </section>
+      </section>
+
+      <section class="chart-card" aria-labelledby="chart-heading">
+        <div class="card-heading">
+          <div>
+            <p class="eyebrow">THE LONG ROAD BACK</p>
+            <h2 id="chart-heading">Death progression</h2>
+          </div>
+        </div>
+        <p class="chart-instructions">
+          Each point is one death. Hover highlighted points for details, or select one to open its
+          Twitch clip. Notable events appear as vertical lines; hover a line for its details or click
+          to open its Twitch clip. Boss kills remain labeled on the chart, while other event names
+          appear on hover. Unmatched deaths stay visible in the background and ignore hover.
+        </p>
+
+        <section class="filters" id="filters-section" aria-labelledby="filters-heading">
+          <div class="filters-heading">
+            <div class="filters-heading-copy">
+              <div>
+                <p class="eyebrow">NARROW THE STORY</p>
+                <h3 id="filters-heading">Highlight deaths</h3>
+              </div>
+              <div class="legend-key">
+                <span class="legend-dot" aria-hidden="true"></span>
+                <span>Matches your filters</span>
+              </div>
+            </div>
+            <div class="filters-actions">
+              <label class="focus-toggle">
+                <input id="focus-matching-toggle" type="checkbox" checked>
+                <span class="focus-toggle-track" aria-hidden="true"></span>
+                <span>Focus on matching days and deaths</span>
+              </label>
+              <button class="button button-text" id="reset-filters" type="button" disabled>Clear filters</button>
+            </div>
+          </div>
+          <div class="filters-layout">
+            <div class="filters-main">
+              <p class="filter-hint">Choose any number of values. Values within a filter match as alternatives; different filters are combined.</p>
+              <fieldset class="filter-grid" id="filter-controls" disabled>
+                <legend class="visually-hidden">Death filters</legend>
+                <details class="filter-menu" data-filter-menu="enemy" data-searchable="true">
+                  <summary>Enemy <span class="selection-summary">All</span></summary>
+                  <div class="filter-options">
+                    <label class="filter-search">
+                      <span class="visually-hidden">Search enemies</span>
+                      <input type="search" placeholder="Search enemies…" autocomplete="off">
+                    </label>
+                    <label class="select-all-option">
+                      <input type="checkbox" data-select-all="enemy">
+                      <span>Select all</span>
+                    </label>
+                    <div class="filter-option-list"></div>
+                  </div>
+                </details>
+                <details class="filter-menu" data-filter-menu="level">
+                  <summary>Enemy level <span class="selection-summary">All</span></summary>
+                  <div class="filter-options">
+                    <label class="select-all-option">
+                      <input type="checkbox" data-select-all="level">
+                      <span>Select all</span>
+                    </label>
+                    <div class="filter-option-list"></div>
+                  </div>
+                </details>
+                <details class="filter-menu" data-filter-menu="situation" data-searchable="true">
+                  <summary>Situation <span class="selection-summary">All</span></summary>
+                  <div class="filter-options">
+                    <label class="filter-search">
+                      <span class="visually-hidden">Search situations</span>
+                      <input type="search" placeholder="Search situations…" autocomplete="off">
+                    </label>
+                    <label class="select-all-option">
+                      <input type="checkbox" data-select-all="situation">
+                      <span>Select all</span>
+                    </label>
+                    <div class="filter-option-list"></div>
+                  </div>
+                </details>
+                <details class="filter-menu" data-filter-menu="location" data-searchable="true">
+                  <summary>Location <span class="selection-summary">All</span></summary>
+                  <div class="filter-options">
+                    <label class="filter-search">
+                      <span class="visually-hidden">Search locations</span>
+                      <input type="search" placeholder="Search locations…" autocomplete="off">
+                    </label>
+                    <label class="select-all-option">
+                      <input type="checkbox" data-select-all="location">
+                      <span>Select all</span>
+                    </label>
+                    <div class="filter-option-list"></div>
+                  </div>
+                </details>
+              </fieldset>
+            </div>
+            <div class="stat-card stat-card-accent highlight-stat">
+              <span class="stat-label">Deaths highlighted</span>
+              <strong class="stat-value" id="highlight-count">—</strong>
+            </div>
+          </div>
+        </section>
+
+        <div class="chart-wrap">
+          <canvas id="death-chart" role="img" aria-label="Line chart showing death number and notable events by in-game day">
+            Death progression chart with notable events. Use the filters below to highlight matching deaths.
+          </canvas>
+        </div>
+
+        <section class="category-chart" aria-labelledby="category-chart-heading">
+          <div class="category-chart-heading">
+            <div>
+              <p class="eyebrow">THE MANY WAYS TO FALL</p>
+              <h3 id="category-chart-heading">Deaths by category</h3>
+            </div>
+            <div class="category-buttons" id="category-buttons" role="group" aria-label="Choose chart category">
+              <button class="category-button" type="button" data-category="enemy" aria-pressed="true" disabled>Enemy</button>
+              <button class="category-button" type="button" data-category="level" aria-pressed="false" disabled>Enemy level</button>
+              <button class="category-button" type="button" data-category="situation" aria-pressed="false" disabled>Situation</button>
+              <button class="category-button" type="button" data-category="location" aria-pressed="false" disabled>Location</button>
+            </div>
+          </div>
+          <p class="category-chart-instructions">
+            Counts include every death, regardless of the filters above. Click a bar or category name to filter the line chart; click the same selection again or empty chart space to clear filters.
+          </p>
+          <div class="category-chart-wrap">
+            <div class="category-chart-inner">
+              <canvas id="category-chart" role="img" aria-label="Stacked bar chart showing all deaths by enemy">
+                Death count by category. Hover over a bar for its death count.
+              </canvas>
+            </div>
+          </div>
+          <div class="category-chart-tooltip" role="tooltip" aria-hidden="true"></div>
+        </section>
+
+        <div class="data-status" id="data-status" role="status" aria-live="polite">
+          <span class="status-indicator" aria-hidden="true"></span>
+          <span class="status-message">Connecting to the death log…</span>
+        </div>
+        <div class="error-panel" id="error-panel" role="alert" hidden>
+          <p class="error-message"></p>
+          <button class="button button-quiet retry-button" id="retry-button" type="button">Try again</button>
+        </div>
+      </section>
+
+      <footer class="page-footer">
+        <span>Data from the <strong>Death Recap</strong> and <strong>Notable Events</strong> Google Sheets</span>
+        <span>Stay rested out there.</span>
+      </footer>
+    </main>
+  </body>
+</html>
