@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#001219">
+    <meta name="theme-color" content="#f5f5f5">
     <meta name="description" content="Follow Quin's Valheim death count and notable moments across in-game days.">
     <title>Quin's Valheim Death Chart</title>
     <link rel="stylesheet" href="styles.css">
@@ -19,9 +19,14 @@
           <h1>Every death has a story.</h1>
           <p class="intro">Quin's journey through the tenth realm, one hard-earned lesson at a time.</p>
         </div>
-        <button class="button button-quiet refresh-button" id="refresh-button" type="button">
-          <span aria-hidden="true">↻</span> Refresh data
-        </button>
+        <div class="header-actions">
+          <button class="button button-quiet theme-toggle" id="theme-toggle" type="button" aria-pressed="false">
+            Dark mode
+          </button>
+          <button class="button button-quiet refresh-button" id="refresh-button" type="button">
+            <span aria-hidden="true">↻</span> Refresh data
+          </button>
+        </div>
       </header>
 
       <section class="stats" aria-label="Death chart summary">
@@ -64,8 +69,7 @@
         <p class="chart-instructions">
           Each point is one death. Hover highlighted points for details, or select one to open its
           Twitch clip. Notable events appear as vertical lines; hover a line for its details or click
-          to open its Twitch clip. Boss kills remain labeled on the chart, while other event names
-          appear on hover. Unmatched deaths stay visible in the background and ignore hover.
+          to open its Twitch clip.
         </p>
 
         <section class="filters" id="filters-section" aria-labelledby="filters-heading">
@@ -91,7 +95,6 @@
           </div>
           <div class="filters-layout">
             <div class="filters-main">
-              <p class="filter-hint">Choose any number of values. Values within a filter match as alternatives; different filters are combined.</p>
               <fieldset class="filter-grid" id="filter-controls" disabled>
                 <legend class="visually-hidden">Death filters</legend>
                 <details class="filter-menu" data-filter-menu="enemy" data-searchable="true">
@@ -198,8 +201,27 @@
       </section>
 
       <footer class="page-footer">
-        <span>Data from the <strong>Death Recap</strong> and <strong>Notable Events</strong> Google Sheets</span>
-        <span>Stay rested out there.</span>
+        <div class="footer-data-note">
+          <a
+            href="https://docs.google.com/spreadsheets/d/1Kp-XEQY5-Lw2FDkZdUjCOWYqyjsIpQHBHRfys5qBF68/edit"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Source (Manually updated Google Sheet)</a>
+          <span>This page was 100% vibe coded, look at what those clankers can do !</span>
+        </div>
+        <div class="footer-actions">
+          <span>Stay rested out there.</span>
+          <label class="visually-hidden" for="highlight-color">Highlight color</label>
+          <select class="button button-quiet highlight-color-select" id="highlight-color">
+            <option value="light-blue">Light blue</option>
+            <option value="red">Red</option>
+            <option value="yellow">Yellow</option>
+            <option value="orange">Orange</option>
+            <option value="green">Green</option>
+            <option value="dark-blue">Dark blue</option>
+            <option value="purple">Purple</option>
+          </select>
+        </div>
       </footer>
     </main>
   </body>

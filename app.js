@@ -12,26 +12,41 @@ const FILTERS = [
   { key: "location", label: "Location", column: "Location" },
 ];
 
-const PALETTE = {
-  darkTeal: "#005f73",
-  darkCyan: "#0a9396",
-  pearlAqua: "#94d2bd",
-  vanillaCustard: "#e9d8a6",
-  goldenOrange: "#ee9b00",
-  rustySpice: "#bb3e03",
-  oxidizedIron: "#ae2012",
-  brownRed: "#9b2226",
-  ironGrey: "#495057",
-  carbonBlack: "#212529",
-  slateGrey: "#6c757d",
+const THEME_STORAGE_KEY = "quin-death-chart-theme";
+const HIGHLIGHT_COLOR_STORAGE_KEY = "quin-death-chart-highlight-color";
+const HIGHLIGHT_COLORS = {
+  "light-blue": {
+    light: { accent: "#456c83", variants: ["#456c83", "#7290a0", "#a2b2bb"] },
+    dark: { accent: "#8fb4c8", variants: ["#8fb4c8", "#b0c3cd", "#d0d8dc"] },
+  },
+  red: {
+    light: { accent: "#a33a43", variants: ["#a33a43", "#c56b72", "#dfa0a4"] },
+    dark: { accent: "#d34a55", variants: ["#d34a55", "#dd727b", "#e7a0a5"] },
+  },
+  yellow: {
+    light: { accent: "#8a6d00", variants: ["#8a6d00", "#b49632", "#cfbd73"] },
+    dark: { accent: "#e6c75a", variants: ["#e6c75a", "#f0d983", "#f8eab5"] },
+  },
+  orange: {
+    light: { accent: "#a5480a", variants: ["#a5480a", "#c8783c", "#dfa77c"] },
+    dark: { accent: "#f29a62", variants: ["#f29a62", "#f6b78f", "#f9d5bd"] },
+  },
+  green: {
+    light: { accent: "#286344", variants: ["#286344", "#4e8666", "#80a88f"] },
+    dark: { accent: "#80c99a", variants: ["#80c99a", "#a6d9b6", "#cdebd4"] },
+  },
+  "dark-blue": {
+    light: { accent: "#315996", variants: ["#315996", "#6380ad", "#93a8c6"] },
+    dark: { accent: "#85a9f5", variants: ["#85a9f5", "#abc4fa", "#d4e1fc"] },
+  },
+  purple: {
+    light: { accent: "#70469a", variants: ["#70469a", "#9270b3", "#b5a0cc"] },
+    dark: { accent: "#bd9ae8", variants: ["#bd9ae8", "#d0b6ef", "#e4d6f6"] },
+  },
 };
-const FILTER_COLORS = {
-  match: PALETTE.oxidizedIron,
-  matchBorder: PALETTE.vanillaCustard,
-  muted: colorWithAlpha(PALETTE.slateGrey, 0.3),
-  mutedBorder: colorWithAlpha(PALETTE.slateGrey, 0.5),
-  line: colorWithAlpha(PALETTE.brownRed, 0.45),
-};
+const themeToggle = document.querySelector("#theme-toggle");
+const highlightColorSelect = document.querySelector("#highlight-color");
+const themeColorMeta = document.querySelector('meta[name="theme-color"]');
 
 const selectedValues = new Map(FILTERS.map(({ key }) => [key, new Set()]));
 const filterControls = document.querySelector("#filter-controls");
@@ -64,6 +79,8 @@ let categoryChartValues = [];
 let categoryAxisLabelHitAreas = [];
 let hoveredCategorySegment = null;
 let exactSituationCombination = null;
+let hasExplicitTheme = false;
+let selectedHighlightColor = "light-blue";
 
 const DEFAULT_RECENT_DEATH_COUNT = 3;
 
@@ -75,16 +92,107 @@ function colorWithAlpha(hex, alpha) {
 }
 
 function chartThemeColors() {
-  const axis = PALETTE.vanillaCustard;
+  const isDark = document.documentElement.dataset.theme === "dark";
+  const highlight = HIGHLIGHT_COLORS[selectedHighlightColor][isDark ? "dark" : "light"];
+  const axis = isDark ? "#c2c2c2" : "#686868";
   return {
-    tooltipBackground: PALETTE.carbonBlack,
-    tooltipBorder: PALETTE.ironGrey,
-    tooltipTitle: PALETTE.goldenOrange,
-    tooltipText: PALETTE.vanillaCustard,
+    chartAccent: highlight.accent,
+    chartVariants: highlight.variants,
+    chartSecondary: isDark ? "#b0b0b0" : "#777777",
+    tooltipBackground: isDark ? "#1b1b1b" : "#ffffff",
+    tooltipBorder: isDark ? "#555555" : "#d0d0d0",
+    tooltipTitle: isDark ? "#f0f0f0" : "#222222",
+    tooltipText: isDark ? "#e0e0e0" : "#333333",
     axis,
-    grid: colorWithAlpha(axis, 0.12),
-    border: colorWithAlpha(axis, 0.2),
+    grid: colorWithAlpha(axis, 0.16),
+    border: colorWithAlpha(axis, 0.28),
   };
+}
+
+function chartFilterColors() {
+  const colors = chartThemeColors();
+  const darkSurface = document.documentElement.dataset.theme === "dark";
+  return {
+    match: colors.chartAccent,
+    matchBorder: darkSurface ? "#1b1b1b" : "#ffffff",
+    muted: colorWithAlpha("#858585", 0.28),
+    mutedBorder: colorWithAlpha("#858585", 0.55),
+    line: colorWithAlpha(colors.chartAccent, 0.5),
+  };
+}
+
+function applyTheme(theme, persist = false) {
+  document.documentElement.dataset.theme = theme;
+  applyHighlightColor(selectedHighlightColor);
+  themeToggle.setAttribute("aria-pressed", String(theme === "dark"));
+  themeToggle.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+  themeToggle.setAttribute(
+    "aria-label",
+    `Switch to ${theme === "dark" ? "light" : "dark"} mode`,
+  );
+  themeColorMeta.content = theme === "dark" ? "#111111" : "#f5f5f5";
+
+  if (!persist) return;
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (error) {
+    console.warn("Unable to save the selected theme in this browser.", error);
+  }
+}
+
+function applyHighlightColor(color, persist = false) {
+  selectedHighlightColor = color;
+  highlightColorSelect.value = color;
+  const theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  document.documentElement.style.setProperty(
+    "--highlight-color",
+    HIGHLIGHT_COLORS[color][theme].accent,
+  );
+
+  if (!persist) return;
+  try {
+    localStorage.setItem(HIGHLIGHT_COLOR_STORAGE_KEY, color);
+  } catch (error) {
+    console.warn("Unable to save the selected highlight color in this browser.", error);
+  }
+}
+
+function initializeHighlightColor() {
+  let savedColor;
+  try {
+    savedColor = localStorage.getItem(HIGHLIGHT_COLOR_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Unable to read the saved highlight color from this browser.", error);
+  }
+  applyHighlightColor(
+    Object.hasOwn(HIGHLIGHT_COLORS, savedColor) ? savedColor : "light-blue",
+  );
+}
+
+function initializeTheme() {
+  let savedTheme;
+  try {
+    savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Unable to read the saved theme from this browser.", error);
+  }
+  const systemPreference = window.matchMedia("(prefers-color-scheme: dark)");
+  hasExplicitTheme = savedTheme === "dark" || savedTheme === "light";
+  const systemTheme = systemPreference.matches
+    ? "dark"
+    : "light";
+  applyTheme(savedTheme === "dark" || savedTheme === "light" ? savedTheme : systemTheme);
+  systemPreference.addEventListener("change", (event) => {
+    if (!hasExplicitTheme) {
+      applyTheme(event.matches ? "dark" : "light");
+      refreshChartsForAppearance();
+    }
+  });
+}
+
+function refreshChartsForAppearance() {
+  if (chart) renderChart();
+  if (categoryChart) renderCategoryChart();
 }
 
 function updateChartThemeOptions(chartInstance) {
@@ -629,6 +737,7 @@ function enemyGroupName(enemy) {
 }
 
 function categoryChartData(key) {
+  const colors = chartThemeColors();
   if (key === "enemy") {
     const enemyValues = [...new Set(deaths.map((death) => death.enemy))];
     enemyValues.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
@@ -646,7 +755,6 @@ function categoryChartData(key) {
       group,
       enemyValues.filter((enemy) => enemyGroupName(enemy) === group),
     ]));
-    const variantColors = [PALETTE.darkTeal, PALETTE.darkCyan, PALETTE.pearlAqua];
     return {
       labels: groups,
       datasets: enemyValues.map((enemy) => ({
@@ -659,18 +767,18 @@ function categoryChartData(key) {
         backgroundColor: groups.map((group) => {
           const variants = variantsByGroup.get(group);
           const baseColor = variants.length > 1
-            ? variantColors[variants.indexOf(enemy) % variantColors.length]
-            : PALETTE.darkTeal;
+            ? colors.chartVariants[variants.indexOf(enemy) % colors.chartVariants.length]
+            : colors.chartAccent;
           return baseColor;
         }),
         hoverBackgroundColor: groups.map((group) => {
           const variants = variantsByGroup.get(group);
           const baseColor = variants.length > 1
-            ? variantColors[variants.indexOf(enemy) % variantColors.length]
-            : PALETTE.darkTeal;
+            ? colors.chartVariants[variants.indexOf(enemy) % colors.chartVariants.length]
+            : colors.chartAccent;
           return baseColor;
         }),
-        borderColor: "#001219",
+        borderColor: colors.tooltipBackground,
         borderWidth: 1,
         stack: "deaths",
       })),
@@ -696,9 +804,9 @@ function categoryChartData(key) {
     datasets: [{
       label: "Deaths",
       data: values.map((value) => counts.get(value)),
-      backgroundColor: PALETTE.darkTeal,
-      hoverBackgroundColor: PALETTE.darkTeal,
-      borderColor: "#001219",
+      backgroundColor: colors.chartAccent,
+      hoverBackgroundColor: colors.chartAccent,
+      borderColor: colors.tooltipBackground,
       borderWidth: 1,
     }],
     values: [values],
@@ -744,7 +852,7 @@ const categoryAxisLabels = {
     context.font = "10px Segoe UI, sans-serif";
     context.textAlign = "center";
     context.textBaseline = "top";
-    context.fillStyle = PALETTE.vanillaCustard;
+    context.fillStyle = chartThemeColors().axis;
 
     labels.forEach((label, index) => {
       const x = scale.getPixelForValue(index);
@@ -1031,7 +1139,8 @@ function updateSummary() {
 
 function pointColor(context, matching) {
   const index = context.dataIndex;
-  return matching[index] ? FILTER_COLORS.match : FILTER_COLORS.muted;
+  const colors = chartFilterColors();
+  return matching[index] ? colors.match : colors.muted;
 }
 
 function isDeathHighlighted(index) {
@@ -1043,12 +1152,13 @@ const dimmedDeathPoints = {
   afterDatasetsDraw(chartInstance) {
     const meta = chartInstance.getDatasetMeta(0);
     const { ctx, chartArea } = chartInstance;
+    const colors = chartFilterColors();
     ctx.save();
     ctx.beginPath();
     ctx.rect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
     ctx.clip();
-    ctx.fillStyle = FILTER_COLORS.muted;
-    ctx.strokeStyle = FILTER_COLORS.mutedBorder;
+    ctx.fillStyle = colors.muted;
+    ctx.strokeStyle = colors.mutedBorder;
     ctx.lineWidth = 1;
 
     meta.data.forEach((point, index) => {
@@ -1065,7 +1175,8 @@ const dimmedDeathPoints = {
 };
 
 function notableEventColor(event) {
-  return event.type === "Boss Kill" ? PALETTE.goldenOrange : PALETTE.pearlAqua;
+  const colors = chartThemeColors();
+  return event.type === "Boss Kill" ? colors.chartAccent : colors.chartSecondary;
 }
 
 const notableEventMarkers = {
@@ -1114,12 +1225,12 @@ const notableEventMarkers = {
       labelTracks[track] = left + labelWidth;
 
       const y = chartArea.top + 6 + track * 17;
-      ctx.fillStyle = PALETTE.carbonBlack;
+      ctx.fillStyle = chartThemeColors().tooltipBackground;
       ctx.strokeStyle = notableEventColor(event);
       ctx.lineWidth = 1;
       ctx.fillRect(left, y - 2, labelWidth, 15);
       ctx.strokeRect(left, y - 2, labelWidth, 15);
-      ctx.fillStyle = PALETTE.goldenOrange;
+      ctx.fillStyle = chartThemeColors().tooltipTitle;
       ctx.fillText(event.name, left + labelWidth / 2, y, labelWidth - 6);
     });
     ctx.restore();
@@ -1216,12 +1327,13 @@ function renderChart() {
   }
 
   const colors = chartThemeColors();
+  const filterColors = chartFilterColors();
   const matching = deaths.map(matchesFilters);
   const data = deaths.map((death) => ({ x: death.day, y: death.death, ...death }));
   const dataset = {
     label: "Death number",
     data,
-    borderColor: FILTER_COLORS.line,
+    borderColor: filterColors.line,
     borderDash: [6, 4],
     borderWidth: 2,
     tension: 0.18,
@@ -1231,11 +1343,11 @@ function renderChart() {
     pointHitRadius: (context) => matching[context.dataIndex] ? 11 : 0,
     pointBackgroundColor: (context) => pointColor(context, matching),
     pointHoverBackgroundColor: (context) =>
-      matching[context.dataIndex] ? FILTER_COLORS.match : FILTER_COLORS.muted,
+      matching[context.dataIndex] ? filterColors.match : filterColors.muted,
     pointBorderColor: (context) =>
-      matching[context.dataIndex] ? FILTER_COLORS.matchBorder : FILTER_COLORS.mutedBorder,
+      matching[context.dataIndex] ? filterColors.matchBorder : filterColors.mutedBorder,
     pointBorderWidth: (context) => matching[context.dataIndex] ? 1.5 : 1,
-    segment: { borderColor: FILTER_COLORS.line },
+    segment: { borderColor: filterColors.line },
   };
 
   if (chart) {
@@ -1342,15 +1454,17 @@ function applyFilters() {
   updateSummary();
   if (chart) {
     const matching = deaths.map(matchesFilters);
+    const filterColors = chartFilterColors();
     const dataset = chart.data.datasets[0];
     dataset.pointRadius = (context) => matching[context.dataIndex] ? 4.5 : 0;
     dataset.pointHoverRadius = (context) => matching[context.dataIndex] ? 7 : 0;
     dataset.pointHitRadius = (context) => matching[context.dataIndex] ? 11 : 0;
     dataset.pointBackgroundColor = (context) => pointColor(context, matching);
     dataset.pointBorderColor = (context) =>
-      matching[context.dataIndex] ? FILTER_COLORS.matchBorder : FILTER_COLORS.mutedBorder;
+      matching[context.dataIndex] ? filterColors.matchBorder : filterColors.mutedBorder;
     dataset.pointBorderWidth = (context) => matching[context.dataIndex] ? 1.5 : 1;
-    dataset.segment.borderColor = FILTER_COLORS.line;
+    dataset.borderColor = filterColors.line;
+    dataset.segment.borderColor = filterColors.line;
     chart.options.plugins.tooltip.filter = (item) => isDeathHighlighted(item.dataIndex);
     updateChartFocusRange(matching);
     chart.update();
@@ -1485,6 +1599,19 @@ recentEventsToggle.addEventListener("click", () => {
 });
 
 recentEventsList.addEventListener("scroll", hideRecentEventTooltip);
+
+initializeTheme();
+initializeHighlightColor();
+themeToggle.addEventListener("click", () => {
+  const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  hasExplicitTheme = true;
+  applyTheme(nextTheme, true);
+  refreshChartsForAppearance();
+});
+highlightColorSelect.addEventListener("change", () => {
+  applyHighlightColor(highlightColorSelect.value, true);
+  refreshChartsForAppearance();
+});
 
 refreshButton.addEventListener("click", loadSheetData);
 retryButton.addEventListener("click", loadSheetData);
