@@ -163,6 +163,42 @@
             Death progression chart with notable events. Use the filters below to highlight matching deaths.
           </canvas>
         </div>
+        <section class="time-navigator" id="time-navigator" aria-label="Choose the visible in-game day range" hidden>
+          <div class="time-navigator-overview" aria-hidden="true">
+            <svg viewBox="0 0 1000 60" preserveAspectRatio="none">
+              <path class="time-navigator-area"></path>
+              <path class="time-navigator-line"></path>
+            </svg>
+          </div>
+          <div class="time-range-track" id="time-range-track" role="group" aria-label="Visible day range">
+            <div class="time-range-selection" id="time-range-selection" aria-hidden="true"></div>
+            <button
+              class="time-range-handle"
+              type="button"
+              role="slider"
+              data-range-handle="start"
+              aria-label="Start of visible day range"
+              aria-describedby="time-navigator-instructions"
+              aria-valuetext="Day 0"
+            ></button>
+            <button
+              class="time-range-handle"
+              type="button"
+              role="slider"
+              data-range-handle="end"
+              aria-label="End of visible day range"
+              aria-describedby="time-navigator-instructions"
+              aria-valuetext="Day 0"
+            ></button>
+          </div>
+          <div class="time-navigator-labels">
+            <span id="time-range-start-label">Day 0</span>
+            <span id="time-range-end-label">Day 0</span>
+          </div>
+          <p class="visually-hidden" id="time-navigator-instructions">
+            Drag the range handles to choose the visible days. Drag between the handles to move the whole range. Use the arrow keys, Page Up or Page Down, Home, and End to adjust a focused handle.
+          </p>
+        </section>
 
         <section class="category-chart" aria-labelledby="category-chart-heading">
           <div class="category-chart-heading">

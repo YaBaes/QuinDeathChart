@@ -61,6 +61,15 @@ const deathCount = document.querySelector("#death-count");
 const highlightCount = document.querySelector("#highlight-count");
 const focusMatchingToggle = document.querySelector("#focus-matching-toggle");
 const chartCanvas = document.querySelector("#death-chart");
+const timeNavigator = document.querySelector("#time-navigator");
+const timeRangeTrack = document.querySelector("#time-range-track");
+const timeRangeSelection = document.querySelector("#time-range-selection");
+const timeRangeStartHandle = timeRangeTrack.querySelector('[data-range-handle="start"]');
+const timeRangeEndHandle = timeRangeTrack.querySelector('[data-range-handle="end"]');
+const timeRangeStartLabel = document.querySelector("#time-range-start-label");
+const timeRangeEndLabel = document.querySelector("#time-range-end-label");
+const timeNavigatorLine = timeNavigator.querySelector(".time-navigator-line");
+const timeNavigatorArea = timeNavigator.querySelector(".time-navigator-area");
 const categoryChartCanvas = document.querySelector("#category-chart");
 const categoryButtons = document.querySelector("#category-buttons");
 const recentEventsSection = document.querySelector(".recent-events");
@@ -81,6 +90,8 @@ let hoveredCategorySegment = null;
 let exactSituationCombination = null;
 let hasExplicitTheme = false;
 let selectedHighlightColor = "light-blue";
+let selectedDayRange = { start: 0, end: 1 };
+let timeRangeDrag = null;
 
 const DEFAULT_RECENT_DEATH_COUNT = 3;
 
@@ -1288,28 +1299,175 @@ function updateChartFocusRange(matching) {
   const xScaleOptions = chart.options.scales.x;
   const yScaleOptions = chart.options.scales.y;
   const matchingDeaths = deaths.filter((_death, index) => matching[index]);
+  const shouldFocusOnMatches =
+    focusMatchingToggle.checked && hasActiveFilters() && matchingDeaths.length > 0;
 
-  if (!focusMatchingToggle.checked || !hasActiveFilters() || matchingDeaths.length === 0) {
-    delete xScaleOptions.min;
-    xScaleOptions.max = suggestedChartDayMax();
+  if (!shouldFocusOnMatches) {
+    xScaleOptions.min = selectedDayRange.start;
+    xScaleOptions.max = selectedDayRange.end;
+  } else {
+    const firstDay = Math.min(...matchingDeaths.map((death) => death.day));
+    const lastDay = Math.max(...matchingDeaths.map((death) => death.day));
+    const dayPadding = Math.max(1, Math.ceil((lastDay - firstDay) * 0.05));
+    xScaleOptions.min = Math.max(0, firstDay - dayPadding);
+    xScaleOptions.max = lastDay + dayPadding;
+  }
+
+  const deathsForYAxis = shouldFocusOnMatches
+    ? matchingDeaths
+    : deaths.filter(
+        (death) =>
+          death.day >= selectedDayRange.start && death.day <= selectedDayRange.end,
+      );
+
+  if (deathsForYAxis.length === 0) {
     delete yScaleOptions.min;
     delete yScaleOptions.max;
     yScaleOptions.beginAtZero = true;
     return;
   }
 
-  const firstDay = Math.min(...matchingDeaths.map((death) => death.day));
-  const lastDay = Math.max(...matchingDeaths.map((death) => death.day));
-  const dayPadding = Math.max(1, Math.ceil((lastDay - firstDay) * 0.05));
-  xScaleOptions.min = Math.max(0, firstDay - dayPadding);
-  xScaleOptions.max = lastDay + dayPadding;
-
-  const firstDeath = Math.min(...matchingDeaths.map((death) => death.death));
-  const lastDeath = Math.max(...matchingDeaths.map((death) => death.death));
+  const firstDeath = Math.min(...deathsForYAxis.map((death) => death.death));
+  const lastDeath = Math.max(...deathsForYAxis.map((death) => death.death));
   const deathPadding = Math.max(1, Math.ceil((lastDeath - firstDeath) * 0.05));
   yScaleOptions.beginAtZero = false;
   yScaleOptions.min = Math.max(0, firstDeath - deathPadding);
   yScaleOptions.max = lastDeath + deathPadding;
+}
+
+function chartDayBounds() {
+  const days = [
+    ...deaths.map((death) => death.day),
+    ...notableEvents.map((event) => event.day),
+  ];
+  return {
+    min: days.length ? Math.min(0, ...days) : 0,
+    max: suggestedChartDayMax(),
+  };
+}
+
+function initializeTimeNavigator() {
+  const bounds = chartDayBounds();
+  selectedDayRange = { start: bounds.min, end: bounds.max };
+  const maximumDeath = Math.max(1, ...deaths.map((death) => death.death));
+  const points = deaths
+    .slice()
+    .sort((first, second) => first.day - second.day || first.death - second.death)
+    .map((death) => ({
+      x: ((death.day - bounds.min) / (bounds.max - bounds.min)) * 1000,
+      y: 56 - (death.death / maximumDeath) * 48,
+    }));
+  const linePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(" ");
+
+  timeNavigatorLine.setAttribute("d", linePath);
+  timeNavigatorArea.setAttribute(
+    "d",
+    points.length
+      ? `M ${points[0].x.toFixed(2)} 60 ${points
+          .map((point) => `L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+          .join(" ")} L ${points[points.length - 1].x.toFixed(2)} 60 Z`
+      : "",
+  );
+  timeNavigator.hidden = false;
+  updateTimeNavigator();
+}
+
+function updateTimeNavigator() {
+  const bounds = chartDayBounds();
+  const fullRange = bounds.max - bounds.min;
+  const startPercent = ((selectedDayRange.start - bounds.min) / fullRange) * 100;
+  const endPercent = ((selectedDayRange.end - bounds.min) / fullRange) * 100;
+  const startDay = Math.round(selectedDayRange.start);
+  const endDay = Math.round(selectedDayRange.end);
+
+  timeRangeSelection.style.left = `${startPercent}%`;
+  timeRangeSelection.style.width = `${endPercent - startPercent}%`;
+  timeRangeStartHandle.style.left = `${startPercent}%`;
+  timeRangeEndHandle.style.left = `${endPercent}%`;
+  timeRangeStartLabel.textContent = `Day ${startDay}`;
+  timeRangeEndLabel.textContent = `Day ${endDay}`;
+
+  timeRangeStartHandle.setAttribute("aria-valuemin", String(bounds.min));
+  timeRangeStartHandle.setAttribute(
+    "aria-valuemax",
+    String(Math.max(bounds.min, selectedDayRange.end - Math.min(1, fullRange))),
+  );
+  timeRangeStartHandle.setAttribute("aria-valuenow", String(selectedDayRange.start));
+  timeRangeStartHandle.setAttribute("aria-valuetext", `Day ${startDay}`);
+  timeRangeEndHandle.setAttribute(
+    "aria-valuemin",
+    String(Math.min(bounds.max, selectedDayRange.start + Math.min(1, fullRange))),
+  );
+  timeRangeEndHandle.setAttribute("aria-valuemax", String(bounds.max));
+  timeRangeEndHandle.setAttribute("aria-valuenow", String(selectedDayRange.end));
+  timeRangeEndHandle.setAttribute("aria-valuetext", `Day ${endDay}`);
+}
+
+function resetTimeRange() {
+  const bounds = chartDayBounds();
+  selectedDayRange = { start: bounds.min, end: bounds.max };
+  updateTimeNavigator();
+}
+
+function setTimeRange(mode, day) {
+  const bounds = chartDayBounds();
+  const minSpan = Math.min(1, bounds.max - bounds.min);
+  const roundedDay = Math.round(day);
+  const start = selectedDayRange.start;
+  const end = selectedDayRange.end;
+
+  if (mode === "start") {
+    selectedDayRange.start = Math.min(
+      Math.max(bounds.min, roundedDay),
+      end - minSpan,
+    );
+  } else if (mode === "end") {
+    selectedDayRange.end = Math.max(
+      Math.min(bounds.max, roundedDay),
+      start + minSpan,
+    );
+  } else if (mode === "pan") {
+    const span = end - start;
+    const nextStart = Math.min(Math.max(bounds.min, roundedDay), bounds.max - span);
+    selectedDayRange = { start: nextStart, end: nextStart + span };
+  }
+
+  updateTimeNavigator();
+  if (chart) {
+    updateChartFocusRange(deaths.map(matchesFilters));
+    chart.update("none");
+  }
+}
+
+function timeRangeDayFromPointer(event) {
+  const bounds = chartDayBounds();
+  const track = timeRangeTrack.getBoundingClientRect();
+  const position = Math.min(Math.max(0, event.clientX - track.left), track.width);
+  return bounds.min + (position / track.width) * (bounds.max - bounds.min);
+}
+
+function handleTimeRangeKeydown(event) {
+  const handle = event.target.closest("[data-range-handle]");
+  if (!handle) return;
+  const mode = handle.dataset.rangeHandle;
+  const current = mode === "start" ? selectedDayRange.start : selectedDayRange.end;
+  const step = event.shiftKey ? 10 : 1;
+  let nextDay = current;
+
+  if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextDay -= step;
+  else if (event.key === "ArrowRight" || event.key === "ArrowUp") nextDay += step;
+  else if (event.key === "PageDown") nextDay -= 10;
+  else if (event.key === "PageUp") nextDay += 10;
+  else if (event.key === "Home") {
+    nextDay = mode === "start" ? chartDayBounds().min : selectedDayRange.start + 1;
+  } else if (event.key === "End") {
+    nextDay = mode === "start" ? selectedDayRange.end - 1 : chartDayBounds().max;
+  } else return;
+
+  event.preventDefault();
+  setTimeRange(mode, nextDay);
 }
 
 function suggestedChartDayMax() {
@@ -1353,7 +1511,6 @@ function renderChart() {
   if (chart) {
     chart.data.datasets[0] = dataset;
     chart.options.plugins.tooltip.filter = (item) => isDeathHighlighted(item.dataIndex);
-    chart.options.scales.x.max = suggestedChartDayMax();
     updateChartFocusRange(matching);
     updateChartThemeOptions(chart);
     chart.update();
@@ -1419,13 +1576,14 @@ function renderChart() {
       scales: {
         x: {
           type: "linear",
-          max: suggestedChartDayMax(),
+          min: selectedDayRange.start,
+          max: selectedDayRange.end,
           title: { display: false },
           ticks: {
             color: colors.axis,
             maxTicksLimit: 10,
             precision: 0,
-            callback: (value) => `Day ${value}`,
+            callback: (value) => `Day ${Math.round(value)}`,
           },
           grid: { color: colors.grid, tickLength: 6 },
           border: { color: colors.border },
@@ -1505,6 +1663,7 @@ async function loadSheetData() {
     const loadedNotableEvents = parseNotableEventsCsv(notableEventsCsv.replace(/^\uFEFF/, ""));
     deaths = loadedDeaths;
     notableEvents = loadedNotableEvents;
+    initializeTimeNavigator();
     populateFilters();
     updateSummary();
     renderChart();
@@ -1590,6 +1749,7 @@ categoryButtons.addEventListener("click", (event) => {
 
 resetButton.addEventListener("click", () => {
   clearFilterSelections();
+  resetTimeRange();
   applyFilters();
 });
 
@@ -1599,6 +1759,53 @@ recentEventsToggle.addEventListener("click", () => {
 });
 
 recentEventsList.addEventListener("scroll", hideRecentEventTooltip);
+
+timeRangeTrack.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0 || !(event.target instanceof Element)) return;
+  const day = timeRangeDayFromPointer(event);
+  const handle = event.target.closest("[data-range-handle]");
+  let mode = handle?.dataset.rangeHandle;
+
+  if (!mode) {
+    if (day >= selectedDayRange.start && day <= selectedDayRange.end) {
+      mode = "pan";
+    } else {
+      mode = Math.abs(day - selectedDayRange.start) <= Math.abs(day - selectedDayRange.end)
+        ? "start"
+        : "end";
+      setTimeRange(mode, day);
+    }
+  }
+
+  event.preventDefault();
+  timeRangeDrag = {
+    pointerId: event.pointerId,
+    mode,
+    pointerDay: day,
+    start: selectedDayRange.start,
+  };
+  timeRangeTrack.setPointerCapture(event.pointerId);
+  if (handle instanceof HTMLButtonElement) handle.focus();
+});
+
+timeRangeTrack.addEventListener("pointermove", (event) => {
+  if (!timeRangeDrag || timeRangeDrag.pointerId !== event.pointerId) return;
+  const day = timeRangeDayFromPointer(event);
+  if (timeRangeDrag.mode === "pan") {
+    setTimeRange("pan", timeRangeDrag.start + day - timeRangeDrag.pointerDay);
+  } else {
+    setTimeRange(timeRangeDrag.mode, day);
+  }
+});
+
+function finishTimeRangeDrag(event) {
+  if (!timeRangeDrag || timeRangeDrag.pointerId !== event.pointerId) return;
+  timeRangeDrag = null;
+}
+
+timeRangeTrack.addEventListener("pointerup", finishTimeRangeDrag);
+timeRangeTrack.addEventListener("pointercancel", finishTimeRangeDrag);
+timeRangeTrack.addEventListener("keydown", handleTimeRangeKeydown);
 
 initializeTheme();
 initializeHighlightColor();
