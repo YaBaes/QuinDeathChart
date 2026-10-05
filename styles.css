@@ -190,16 +190,15 @@ h1 {
 
 .stats {
   display: grid;
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 2fr);
-  align-items: stretch;
+  grid-template-columns: minmax(170px, 0.72fr) minmax(0, 2fr);
+  align-items: start;
   gap: 12px;
   margin-bottom: 16px;
 }
 
-.stats > .death-count-card {
-  min-height: 72px;
-  align-self: center;
-  padding: 12px 16px;
+.summary-counts {
+  display: grid;
+  gap: 8px;
 }
 
 .stat-card {
@@ -212,6 +211,11 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
+}
+
+.summary-counts .death-count-card {
+  min-height: 64px;
+  padding: 10px 16px;
 }
 
 .stat-card-accent {
@@ -239,6 +243,7 @@ h1 {
 }
 
 .stats > .recent-events {
+  align-self: start;
   min-width: 0;
   padding: 15px 19px;
   border: 1px solid var(--line);
@@ -1134,9 +1139,9 @@ h3 {
     align-items: flex-start;
   }
 
-  .stats > .death-count-card {
-    min-height: 64px;
-    padding: 10px 12px;
+  .summary-counts .death-count-card {
+    min-height: 58px;
+    padding: 9px 12px;
   }
 
   .filters-heading-copy {

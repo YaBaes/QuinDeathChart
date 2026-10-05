@@ -58,6 +58,8 @@ const statusMessage = statusElement.querySelector(".status-message");
 const errorPanel = document.querySelector("#error-panel");
 const errorMessage = errorPanel.querySelector(".error-message");
 const deathCount = document.querySelector("#death-count");
+const bossKillCount = document.querySelector("#boss-kill-count");
+const differentEnemyCount = document.querySelector("#different-enemy-count");
 const highlightCount = document.querySelector("#highlight-count");
 const focusMatchingToggle = document.querySelector("#focus-matching-toggle");
 const chartCanvas = document.querySelector("#death-chart");
@@ -1244,6 +1246,10 @@ function overwriteLineChartFilters(key, values, matchExactSituation = false) {
 function updateSummary() {
   const matchingCount = deaths.reduce((count, death) => count + Number(matchesFilters(death)), 0);
   deathCount.textContent = String(deaths.length);
+  bossKillCount.textContent = String(
+    notableEvents.filter((event) => event.type === "Boss Kill").length,
+  );
+  differentEnemyCount.textContent = String(new Set(deaths.map((death) => death.enemy)).size);
   highlightCount.textContent = String(matchingCount);
 }
 
