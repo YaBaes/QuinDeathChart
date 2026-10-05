@@ -80,7 +80,7 @@ const recentEventsTooltip = document.querySelector("#recent-events-tooltip");
 let deaths = [];
 let notableEvents = [];
 let chart;
-let hoveredNotableEvent = false;
+let hoveredNotableEvent = null;
 let categoryChart;
 let activeCategory = "enemy";
 let recentEventsExpanded = false;
@@ -1289,9 +1289,47 @@ function notableEventColor(event) {
   return event.type === "Boss Kill" ? colors.chartAccent : colors.chartSecondary;
 }
 
+function drawNotableEventLabels(chartInstance, hoveredEvent = null) {
+  const { ctx, chartArea, scales } = chartInstance;
+  const bossKills = notableEvents.flatMap((event) => {
+    if (event.type !== "Boss Kill") return [];
+    const x = scales.x.getPixelForValue(event.day);
+    return x >= chartArea.left && x <= chartArea.right ? [{ event, x }] : [];
+  });
+  if (!bossKills.length) return;
+
+  ctx.save();
+  ctx.font = "600 10px Segoe UI, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const labelTracks = [];
+  bossKills.forEach(({ event, x }) => {
+    const labelWidth = ctx.measureText(event.name).width + 10;
+    const left = Math.max(
+      chartArea.left,
+      Math.min(x - labelWidth / 2, chartArea.right - labelWidth),
+    );
+    let track = labelTracks.findIndex((right) => left >= right + 5);
+    if (track === -1) track = labelTracks.length;
+    labelTracks[track] = left + labelWidth;
+
+    if (hoveredEvent && event !== hoveredEvent) return;
+
+    const y = chartArea.top + 6 + track * 17;
+    ctx.fillStyle = chartThemeColors().tooltipBackground;
+    ctx.strokeStyle = notableEventColor(event);
+    ctx.lineWidth = 1;
+    ctx.fillRect(left, y - 2, labelWidth, 15);
+    ctx.strokeRect(left, y - 2, labelWidth, 15);
+    ctx.fillStyle = chartThemeColors().tooltipTitle;
+    ctx.fillText(event.name, left + labelWidth / 2, y, labelWidth - 6);
+  });
+  ctx.restore();
+}
+
 const notableEventMarkers = {
   id: "notableEventMarkers",
-  afterDatasetsDraw(chartInstance) {
+  beforeDatasetsDraw(chartInstance) {
     if (!notableEvents.length) return;
 
     const { ctx, chartArea, scales } = chartInstance;
@@ -1316,34 +1354,12 @@ const notableEventMarkers = {
     });
     ctx.restore();
 
-    const bossKills = visibleEvents.filter(({ event }) => event.type === "Boss Kill");
-    if (!bossKills.length) return;
-
-    ctx.save();
-    ctx.font = "600 10px Segoe UI, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    const labelTracks = [];
-    bossKills.forEach(({ event, x }) => {
-      const labelWidth = ctx.measureText(event.name).width + 10;
-      const left = Math.max(
-        chartArea.left,
-        Math.min(x - labelWidth / 2, chartArea.right - labelWidth),
-      );
-      let track = labelTracks.findIndex((right) => left >= right + 5);
-      if (track === -1) track = labelTracks.length;
-      labelTracks[track] = left + labelWidth;
-
-      const y = chartArea.top + 6 + track * 17;
-      ctx.fillStyle = chartThemeColors().tooltipBackground;
-      ctx.strokeStyle = notableEventColor(event);
-      ctx.lineWidth = 1;
-      ctx.fillRect(left, y - 2, labelWidth, 15);
-      ctx.strokeRect(left, y - 2, labelWidth, 15);
-      ctx.fillStyle = chartThemeColors().tooltipTitle;
-      ctx.fillText(event.name, left + labelWidth / 2, y, labelWidth - 6);
-    });
-    ctx.restore();
+    drawNotableEventLabels(chartInstance);
+  },
+  afterDatasetsDraw(chartInstance) {
+    if (hoveredNotableEvent?.type === "Boss Kill") {
+      drawNotableEventLabels(chartInstance, hoveredNotableEvent);
+    }
   },
 };
 
@@ -1629,7 +1645,10 @@ function renderChart() {
       onHover: (event, elements) => {
         const hasMatchingPoint = elements.some((element) => isDeathHighlighted(element.index));
         const notableEvent = hasMatchingPoint ? null : findNotableEventAtPosition(event);
-        hoveredNotableEvent = Boolean(notableEvent);
+        if (hoveredNotableEvent !== notableEvent) {
+          hoveredNotableEvent = notableEvent;
+          chart.draw();
+        }
         if (notableEvent) {
           const deathTooltip = chartCanvas.parentElement.querySelector(".death-line-chart-tooltip");
           if (deathTooltip) {
