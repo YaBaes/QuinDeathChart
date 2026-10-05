@@ -739,7 +739,7 @@ function restoreChartStateFromUrl() {
     );
     const values = key === "situation" && hasValidExactSituation
       ? []
-      : params.getAll(key);
+      : params.getAll(key).flatMap((value) => value.split(","));
 
     values.forEach((value) => {
       if (availableValues.has(value)) selectedValues.get(key).add(value);
@@ -792,9 +792,9 @@ function syncChartUrl() {
 
   FILTERS.forEach(({ key }) => {
     if (key === "situation" && exactSituationCombination !== null) return;
-    [...selectedValues.get(key)]
-      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))
-      .forEach((value) => url.searchParams.append(key, value));
+    const values = [...selectedValues.get(key)]
+      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+    if (values.length) url.searchParams.set(key, values.join(","));
   });
   if (exactSituationCombination !== null) {
     url.searchParams.set("situationExact", exactSituationCombination);
@@ -809,7 +809,8 @@ function syncChartUrl() {
     url.searchParams.set("end", String(selectedDayRange.end));
   }
 
-  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const query = url.search.replace(/%2C/gi, ",");
+  const nextUrl = `${url.pathname}${query}${url.hash}`;
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (nextUrl !== currentUrl) {
     window.history.replaceState(window.history.state, "", nextUrl);
