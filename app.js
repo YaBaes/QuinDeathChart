@@ -749,12 +749,14 @@ function enemyGroupName(enemy) {
 
 function categoryChartData(key) {
   const colors = chartThemeColors();
+  const matchingDeaths = deaths.filter(matchesFilters);
   if (key === "enemy") {
-    const enemyValues = [...new Set(deaths.map((death) => death.enemy))];
+    const enemyValues = [...new Set(matchingDeaths.map((death) => death.enemy))];
+    const allEnemyValues = [...new Set(deaths.map((death) => death.enemy))];
     enemyValues.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
     const groupCounts = new Map();
     for (const enemy of enemyValues) {
-      const count = deaths.reduce((total, death) => total + Number(death.enemy === enemy), 0);
+      const count = matchingDeaths.reduce((total, death) => total + Number(death.enemy === enemy), 0);
       const group = enemyGroupName(enemy);
       groupCounts.set(group, (groupCounts.get(group) ?? 0) + count);
     }
@@ -764,7 +766,7 @@ function categoryChartData(key) {
     );
     const variantsByGroup = new Map(groups.map((group) => [
       group,
-      enemyValues.filter((enemy) => enemyGroupName(enemy) === group),
+      allEnemyValues.filter((enemy) => enemyGroupName(enemy) === group),
     ]));
     return {
       labels: groups,
@@ -772,7 +774,7 @@ function categoryChartData(key) {
         label: enemy,
         data: groups.map((group) =>
           group === enemyGroupName(enemy)
-            ? deaths.reduce((count, death) => count + Number(death.enemy === enemy), 0)
+            ? matchingDeaths.reduce((count, death) => count + Number(death.enemy === enemy), 0)
             : null,
         ),
         backgroundColor: groups.map((group) => {
@@ -803,7 +805,7 @@ function categoryChartData(key) {
   }
 
   const counts = new Map();
-  for (const death of deaths) {
+  for (const death of matchingDeaths) {
     counts.set(death[key], (counts.get(death[key]) ?? 0) + 1);
   }
   const values = [...counts.keys()].sort((left, right) =>
@@ -1109,7 +1111,7 @@ function renderCategoryChart() {
   categoryChart.groupValues = data.groupValues;
   categoryChartCanvas.setAttribute(
     "aria-label",
-    `Bar chart showing all deaths by ${FILTERS.find(({ key }) => key === activeCategory).label.toLocaleLowerCase()}`,
+    `Bar chart showing highlighted deaths by ${FILTERS.find(({ key }) => key === activeCategory).label.toLocaleLowerCase()}`,
   );
 }
 
