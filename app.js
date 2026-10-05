@@ -751,12 +751,17 @@ function categoryChartData(key) {
   const colors = chartThemeColors();
   const matchingDeaths = deaths.filter(matchesFilters);
   if (key === "enemy") {
-    const enemyValues = [...new Set(matchingDeaths.map((death) => death.enemy))];
     const allEnemyValues = [...new Set(deaths.map((death) => death.enemy))];
-    enemyValues.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+    allEnemyValues.sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+    const matchingEnemyCounts = new Map();
+    for (const death of matchingDeaths) {
+      matchingEnemyCounts.set(
+        death.enemy,
+        (matchingEnemyCounts.get(death.enemy) ?? 0) + 1,
+      );
+    }
     const groupCounts = new Map();
-    for (const enemy of enemyValues) {
-      const count = matchingDeaths.reduce((total, death) => total + Number(death.enemy === enemy), 0);
+    for (const [enemy, count] of matchingEnemyCounts) {
       const group = enemyGroupName(enemy);
       groupCounts.set(group, (groupCounts.get(group) ?? 0) + count);
     }
@@ -770,11 +775,11 @@ function categoryChartData(key) {
     ]));
     return {
       labels: groups,
-      datasets: enemyValues.map((enemy) => ({
+      datasets: allEnemyValues.map((enemy) => ({
         label: enemy,
         data: groups.map((group) =>
           group === enemyGroupName(enemy)
-            ? matchingDeaths.reduce((count, death) => count + Number(death.enemy === enemy), 0)
+            ? matchingEnemyCounts.get(enemy) ?? null
             : null,
         ),
         backgroundColor: groups.map((group) => {
@@ -795,11 +800,11 @@ function categoryChartData(key) {
         borderWidth: 1,
         stack: "deaths",
       })),
-      values: enemyValues.map((enemy) =>
+      values: allEnemyValues.map((enemy) =>
         groups.map((group) => group === enemyGroupName(enemy) ? enemy : null),
       ),
       groupValues: groups.map((group) =>
-        enemyValues.filter((enemy) => enemyGroupName(enemy) === group),
+        allEnemyValues.filter((enemy) => enemyGroupName(enemy) === group),
       ),
     };
   }
