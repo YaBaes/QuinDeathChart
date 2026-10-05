@@ -725,6 +725,97 @@ function applyFilterSearch(key) {
   updateSelectAll(key);
 }
 
+function restoreChartStateFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const situationValues = new Set(deaths.map((death) => death.situation));
+  const exactSituation = params.get("situationExact");
+  const hasValidExactSituation =
+    exactSituation !== null && situationValues.has(exactSituation);
+
+  FILTERS.forEach(({ key }) => {
+    const availableValues = new Set(
+      [...document.querySelectorAll(`.filter-option input[data-filter="${key}"]`)]
+        .map((checkbox) => checkbox.value),
+    );
+    const values = key === "situation" && hasValidExactSituation
+      ? []
+      : params.getAll(key);
+
+    values.forEach((value) => {
+      if (availableValues.has(value)) selectedValues.get(key).add(value);
+    });
+  });
+
+  if (hasValidExactSituation) {
+    exactSituationCombination = exactSituation;
+    getSituationTags(exactSituation).forEach((tag) => selectedValues.get("situation").add(tag));
+  }
+
+  FILTERS.forEach(({ key }) => {
+    filterControls.querySelectorAll(`.filter-option input[data-filter="${key}"]`)
+      .forEach((checkbox) => {
+        checkbox.checked = selectedValues.get(key).has(checkbox.value);
+      });
+    updateFilterSummary(key);
+  });
+
+  const startParam = params.get("start");
+  const endParam = params.get("end");
+  if (
+    startParam === null || endParam === null ||
+    !/^-?\d+$/.test(startParam) || !/^-?\d+$/.test(endParam)
+  ) {
+    return;
+  }
+
+  const start = Number(startParam);
+  const end = Number(endParam);
+  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= end) return;
+
+  const bounds = chartDayBounds();
+  const minSpan = Math.min(1, bounds.max - bounds.min);
+  const clampedStart = Math.min(Math.max(bounds.min, start), bounds.max - minSpan);
+  const clampedEnd = Math.min(bounds.max, Math.max(clampedStart + minSpan, end));
+  selectedDayRange = { start: clampedStart, end: clampedEnd };
+  updateTimeNavigator();
+}
+
+function syncChartUrl() {
+  const url = new URL(window.location.href);
+  const managedParams = [
+    ...FILTERS.map(({ key }) => key),
+    "situationExact",
+    "start",
+    "end",
+  ];
+  managedParams.forEach((key) => url.searchParams.delete(key));
+
+  FILTERS.forEach(({ key }) => {
+    if (key === "situation" && exactSituationCombination !== null) return;
+    [...selectedValues.get(key)]
+      .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))
+      .forEach((value) => url.searchParams.append(key, value));
+  });
+  if (exactSituationCombination !== null) {
+    url.searchParams.set("situationExact", exactSituationCombination);
+  }
+
+  const bounds = chartDayBounds();
+  if (
+    selectedDayRange.start !== bounds.min ||
+    selectedDayRange.end !== bounds.max
+  ) {
+    url.searchParams.set("start", String(selectedDayRange.start));
+    url.searchParams.set("end", String(selectedDayRange.end));
+  }
+
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (nextUrl !== currentUrl) {
+    window.history.replaceState(window.history.state, "", nextUrl);
+  }
+}
+
 function matchesFilters(death) {
   return FILTERS.every(({ key }) => {
     const selected = selectedValues.get(key);
@@ -1446,6 +1537,7 @@ function setTimeRange(mode, day) {
     updateChartFocusRange(deaths.map(matchesFilters));
     chart.update("none");
   }
+  syncChartUrl();
 }
 
 function timeRangeDayFromPointer(event) {
@@ -1635,6 +1727,7 @@ function applyFilters() {
     chart.update();
   }
   if (categoryChart) renderCategoryChart();
+  syncChartUrl();
 }
 
 async function loadSheetData() {
@@ -1672,10 +1765,12 @@ async function loadSheetData() {
     notableEvents = loadedNotableEvents;
     initializeTimeNavigator();
     populateFilters();
+    restoreChartStateFromUrl();
     updateSummary();
     renderChart();
     renderCategoryChart();
     renderRecentEvents();
+    applyFilters();
     filterControls.disabled = false;
     categoryButtons.querySelectorAll("button").forEach((button) => {
       button.disabled = false;
